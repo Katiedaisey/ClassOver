@@ -234,33 +234,7 @@ shinyServer(function(input, output) {
     selectInput("PCAcolumn2", "Y Variable:", per_var, selected = 2)
   })
   
-  output$PCAPlot <- renderPlot({
-    info <- dataSet()
-    data <- info$data
-    sample <- info$sample
-    train <- info$train
-    test <- info$test
-    
-    nam <- 1:length(info$data[1,])
-    names(nam) <- colnames(info$data)
-    cl1 <- nam[input$columnclass]
-    
-    
-    cl <- data[,cl1]
-    cltrain <- cl[sample]
-    cltest <- cl[-sample]
-    data <- data[,-(cl1)]
-    
-    
-    train <- data[sample,]
-    test <- data[-sample,]
-    
-    if (info$scale == T | info$center == T) {
-      train <- scale(train, scale = info$scale, center = info$center)
-      test <- scale(test, scale = attributes(train)$"scaled:scale", center = attributes(train)$"scaled:center")
-    }
-    
-    pca1 <- prcomp(train)
+  output$PCAPlot <- renderText({
     
     # get chosen columns
     col1 <- input$PCAcolumn1
@@ -269,6 +243,7 @@ shinyServer(function(input, output) {
     a <- a[1:(length(a) - 1)]
     col1 <- paste0(a, collapse = "")
     col1 <- as.numeric(col1)
+
     
     col2 <- input$PCAcolumn2
     strsplit(col2, " ")[[1]][2]
@@ -277,8 +252,7 @@ shinyServer(function(input, output) {
     col2 <- paste0(a, collapse = "")
     col2 <- as.numeric(col2)
     
-    
-    plot(pca1$x[,col1], pca1$x[,col2])
+    col <- c(col1, col2)
   })
   
 }
