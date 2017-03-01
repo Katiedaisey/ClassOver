@@ -32,6 +32,7 @@ shinyUI(fluidPage(
                           checkboxInput("scale", "Scale", value = FALSE),
                           
                           # explore data
+                          htmlOutput("selectClass"),
                           htmlOutput("selectColumn1"),
                           htmlOutput("selectColumn2"),
                           sliderInput("trainpor", "Proportion of Data in Training Set",
@@ -68,7 +69,7 @@ shinyUI(fluidPage(
                       sidebarLayout(
                         sidebarPanel(
                           
-                          htmlOutput("selectClass"),
+                          
                           sliderInput("k", "Number of Neighbors",
                                       min = 1,
                                       max = 30,
@@ -81,7 +82,18 @@ shinyUI(fluidPage(
                       
              ), # end knn tab
              
-             tabPanel("PCA"), 
+             tabPanel("PCA",
+               sidebarLayout(
+                 sidebarPanel(
+                   htmlOutput("ncompSlider"),
+                   htmlOutput("PCAColumn1"),
+                   htmlOutput("PCAColumn2")
+                 ),
+                 mainPanel()
+               )       
+                      
+                      
+             ), # end PCA tab 
              tabPanel("PLSDA"), 
              tabPanel("CART"))
 )

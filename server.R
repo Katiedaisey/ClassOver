@@ -65,6 +65,29 @@ shinyServer(function(input, output) {
     selectInput("columnclass", "Class Variable:", datacolumns(), selected = 2)
   })
   
+  
+  # PCA tab
+  minNcomp <- reactive({
+    info <- dataSet()
+    info <- dim(info$data)
+    min(info)
+  })
+  
+  output$ncompSlider <- renderUI({
+    info <- dataSet()
+    info <- dim(info$data)
+    sliderInput("ncomp", "Number of Components", min = 1, max = minNcomp(), value = 1)
+  })
+  
+  output$PCAColumn1 <- renderUI({
+    selectInput("PCAcolumn1", "X Variable:", datacolumns(), selected = 1)
+  })
+  output$PCAColumn2 <- renderUI({
+    selectInput("PCAcolumn2", "Y Variable:", datacolumns(), selected = 2)
+  })
+  
+  
+  
   # generate histogram depending on column selected
   output$distPlot <- renderPlot({
     info <- dataSet()
@@ -95,10 +118,12 @@ shinyServer(function(input, output) {
   
   output$twodPlot <- renderPlot({
     info <- dataSet()
-    data <- scale(info$data, scale = info$scale, center = info$center)
+    
     train <- data[info$sample,]
     test <- data[-info$sample,]
     
+    train <- scale(train, scale = info$scale, center = info$center)
+    test <- scale(test, scale = attributes(train)$"scaled:scale", center = attributes(train)$"scaled:center")
     
     
     plot(train[,input$column1], train[,input$column2], pch = 20, col = 1, 
@@ -124,13 +149,49 @@ shinyServer(function(input, output) {
     cltest <- cl[-sample]
     data <- data[,-(cl1)]
     
-    data <- scale(data, scale = info$scale, center = info$center)
+    
     train <- data[sample,]
     test <- data[-sample,]
+    
+    train <- scale(train, scale = info$scale, center = info$center)
+    test <- scale(test, scale = attributes(train)$"scaled:scale", center = attributes(train)$"scaled:center")
     
     knn1 <- class:::knn(train = train, test = test, cl = cltrain, k = input$k)
     plot(1:length(cltest), knn1, pch = 20, col = cltest,
          xlab = "Sample No", ylab = "Predicted Class")
+    
+  })
+  
+  
+  output$PCAPlot <- renderPlot({
+    info <- dataSet()
+    data <- info$data
+    sample <- info$sample
+    train <- info$train
+    test <- info$test
+    
+    nam <- 1:length(info$data[1,])
+    names(nam) <- colnames(info$data)
+    cl1 <- nam[input$columnclass]
+    
+    
+    cl <- data[,cl1]
+    cltrain <- cl[sample]
+    cltest <- cl[-sample]
+    data <- data[,-(cl1)]
+    
+    
+    train <- data[sample,]
+    test <- data[-sample,]
+    
+    if (info$scale == T | info$center == T) {
+    train <- scale(train, scale = info$scale, center = info$center)
+    test <- scale(test, scale = attributes(train)$"scaled:scale", center = attributes(train)$"scaled:center")
+    }
+    
+    pca1 <- prcomp(train)
+    
+    
     
   })
   
