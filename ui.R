@@ -89,7 +89,8 @@ shinyUI(fluidPage(
                    htmlOutput("PCAColumn1"),
                    htmlOutput("PCAColumn2")
                  ),
-                 mainPanel()
+                 mainPanel(plotOutput("PCAncompPlot"),
+                           plotOutput("PCAPlot"))
                )       
                       
                       
