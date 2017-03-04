@@ -66,18 +66,9 @@ shinyServer(function(input, output) {
   })
   
   
-  # PCA tab
-  minNcomp <- reactive({
-    info <- dataSet()
-    info <- dim(info$data)
-    min(info)
-  })
+
   
-  output$ncompSlider <- renderUI({
-    info <- dataSet()
-    info <- dim(info$data)
-    sliderInput("ncomp", "Number of Components", min = 1, max = minNcomp(), value = 1)
-  })
+
 
   
   
@@ -112,27 +103,22 @@ shinyServer(function(input, output) {
   
   output$twodPlot <- renderPlot({
     info <- dataSet()
-    
+    data <- scale(info$data, scale = info$scale, center = info$center)
     train <- data[info$sample,]
     test <- data[-info$sample,]
     
-    if (info$center == T) {
-      train <- scale(train, scale = F, center = info$center)
-      test <- scale(test, scale = F, center = attributes(train)$"scaled:center")
-    }
-    if (info$scale == T) {
-      train <- scale(train, scale = info$scale, center = F)
-      test <- scale(test, scale = attributes(train)$"scaled:scale", center = F)
+    if (info$scale == T | info$center == T) {
+      train <- scale(train, scale = info$scale, center = info$center)
+      test <- scale(test, scale = attributes(train)$"scaled:scale", center = attributes(train)$"scaled:center")
     }
     
-    
-    
-    plot(train[,input$column1], train[,input$column2], pch = 20, col = 1, 
-         xlim = c(min(data[,input$column1]), max(data[,input$column1])), ylim = c(min(data[,input$column2]), max(data[,input$column2])),
-         xlab = input$column1, ylab = input$column2)
-    points(test[,input$column1], test[,input$column2], pch = 20, col = 2)
+    plot(data[,input$column1], data[,input$column2])
   })
   
+  
+  
+  
+  # knn
   output$knnPlot <- renderPlot({
     info <- dataSet()
     data <- info$data
@@ -170,6 +156,26 @@ shinyServer(function(input, output) {
     
   })
   
+  
+  
+  
+  
+  
+  
+  # PCA
+  
+  # PCA tab
+  minNcomp <- reactive({
+    info <- dataSet()
+    info <- dim(info$data[,-1])
+    min(info)
+  })
+  
+  output$ncompSlider <- renderUI({
+    info <- dataSet()
+    info <- dim(info$data)
+    sliderInput("ncomp", "Number of Components", min = 1, max = minNcomp(), value = minNcomp(), step = 1, round = T)
+  })
   
   output$PCAncompPlot <- renderPlot({
     info <- dataSet()
@@ -237,10 +243,18 @@ shinyServer(function(input, output) {
   
   
   output$PCAColumn1 <- renderUI({
-    selectInput("PCAselect1", "X Variable:", pcaComps())
+    selectInput("PCAselect1", "X Variable:", pcaComps(), selected = pcaComps()[1])
   })
   output$PCAColumn2 <- renderUI({
-    selectInput("PCAselect2", "Y Variable:", pcaComps())
+    selectInput("PCAselect2", "Y Variable:", pcaComps(), selected = pcaComps()[2])
+  })
+  
+  
+  output$selectPCAColumn1 <- renderUI({
+    selectInput("pcacolumn1", "X Variable:", datacolumns(), selected = datacolumns()[1])
+  })
+  output$selectPCAColumn2 <- renderUI({
+    selectInput("pcacolumn2", "Y Variable:", datacolumns(), selected = datacolumns()[2])
   })
   
   output$PCAPlot <- renderPlot({
@@ -296,6 +310,60 @@ shinyServer(function(input, output) {
     plot(pca1$x[,col1], pca1$x[,col2], xlab = per_var[col1], ylab = per_var[col2], col = as.factor(cltrain))
     
   })
+  
+  
+  output$PCAProj <- renderPlot({
+
+    info <- dataSet()
+    data <- info$data
+    sample <- info$sample
+    train <- info$train
+    test <- info$test
+    
+    nam <- 1:length(info$data[1,])
+    names(nam) <- colnames(info$data)
+    cl1 <- nam[input$columnclass]
+    
+    
+    cl <- data[,cl1]
+    cltrain <- cl[sample]
+    cltest <- cl[-sample]
+    data <- data[,-(cl1)]
+    
+    
+    train <- data[sample,]
+    test <- data[-sample,]
+    
+    if (info$scale == T | info$center == T) {
+      train <- scale(train, scale = info$scale, center = info$center)
+      test <- scale(test, scale = attributes(train)$"scaled:scale", center = attributes(train)$"scaled:center")
+    }
+    
+    pca1 <- prcomp(train, center = F, scale. = F)
+    
+    backproj <- pca1$x[,1:input$ncomp] %*% t(pca1$rotation[,1:input$ncomp])
+    if (info$scale == T) {
+      backproj <- scale(backproj, center = FALSE , scale=1/attributes(train)$"scaled:scale")
+    }
+    if (info$center == T) {
+      backproj <- scale(backproj, center = -1 * attributes(train)$"scaled:center", scale=FALSE)
+    }
+    
+    
+    colnames(backproj) <- colnames(data)
+    
+    knn1 <- class:::knn(train = train, test = test, cl = cltrain, k = input$k)
+    newdata <- pca1$r%*% 
+    plot(backproj[,input$pcacolumn1], backproj[,input$pcacolumn2], pch = 20, col = as.factor(cltrain),
+         xlab = input$pcacolumn1, ylab = input$pcacolumn2)
+    
+    
+    
+    
+    
+  })
+  
+
   
 }
 )

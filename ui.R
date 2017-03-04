@@ -82,15 +82,22 @@ shinyUI(fluidPage(
                       
              ), # end knn tab
              
+             
+             
+             
+             
              tabPanel("PCA",
                sidebarLayout(
                  sidebarPanel(
                    htmlOutput("ncompSlider"),
                    htmlOutput("PCAColumn1"),
-                   htmlOutput("PCAColumn2")
+                   htmlOutput("PCAColumn2"),
+                   htmlOutput("selectPCAColumn1"),
+                   htmlOutput("selectPCAColumn2")
                  ),
                  mainPanel(plotOutput("PCAncompPlot"),
-                           plotOutput("PCAPlot"))
+                           plotOutput("PCAPlot"),
+                           plotOutput("PCAProj"))
                )       
                       
                       
