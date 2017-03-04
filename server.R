@@ -93,7 +93,7 @@ shinyServer(function(input, output) {
     bins <- seq(min(x), max(x), length.out = input$bins + 1)
     
     # draw the histogram with the specified number of bins
-    hist(x, breaks = bins, col = input$color, border = 'white', main = "Histogram of Variable X")
+    hist(x, breaks = bins, col = input$color, border = 'white', main = paste0("Histogram of ", input$column1))
   })
   
   output$dist2Plot <- renderPlot({
@@ -106,7 +106,7 @@ shinyServer(function(input, output) {
     bins <- seq(min(x), max(x), length.out = input$bins + 1)
     
     # draw the histogram with the specified number of bins
-    hist(x, breaks = bins, col = input$color, border = 'white', main = "Histogram of Variable Y")
+    hist(x, breaks = bins, col = input$color, border = 'white', main = paste0("Histogram of ", input$column2))
   })
   
   
@@ -116,8 +116,15 @@ shinyServer(function(input, output) {
     train <- data[info$sample,]
     test <- data[-info$sample,]
     
-    train <- scale(train, scale = info$scale, center = info$center)
-    test <- scale(test, scale = attributes(train)$"scaled:scale", center = attributes(train)$"scaled:center")
+    if (info$center == T) {
+      train <- scale(train, scale = F, center = info$center)
+      test <- scale(test, scale = F, center = attributes(train)$"scaled:center")
+    }
+    if (info$scale == T) {
+      train <- scale(train, scale = info$scale, center = F)
+      test <- scale(test, scale = attributes(train)$"scaled:scale", center = F)
+    }
+    
     
     
     plot(train[,input$column1], train[,input$column2], pch = 20, col = 1, 
@@ -147,10 +154,15 @@ shinyServer(function(input, output) {
     train <- data[sample,]
     test <- data[-sample,]
     
-    if (info$scale == T | info$center == T) {
-    train <- scale(train, scale = info$scale, center = info$center)
-    test <- scale(test, scale = attributes(train)$"scaled:scale", center = attributes(train)$"scaled:center")
+    if (info$center == T) {
+      train <- scale(train, scale = F, center = info$center)
+      test <- scale(test, scale = F, center = attributes(train)$"scaled:center")
     }
+    if (info$scale == T) {
+    train <- scale(train, scale = info$scale, center = F)
+    test <- scale(test, scale = attributes(train)$"scaled:scale", center = F)
+    }
+    
     
     knn1 <- class:::knn(train = train, test = test, cl = cltrain, k = input$k)
     plot(1:length(cltest), knn1, pch = 20, col = cltest,
