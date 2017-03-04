@@ -218,41 +218,71 @@ shinyServer(function(input, output) {
     
     pca1 <- prcomp(train)
     per_var <- round(100*pca1$sdev^2 / sum(pca1$sdev^2),2)
+    per_var <- paste0("Comp ",1:length(per_var), ". ", per_var, "% variance")
   })
   
 
   
   
   output$PCAColumn1 <- renderUI({
-    per_var <- pcaComps()
-    per_var <- paste0("Comp ",1:length(per_var), ". ", per_var, "% variance")
-    selectInput("PCAcolumn1", "X Variable:", per_var, selected = 1)
+    selectInput("PCAselect1", "X Variable:", pcaComps())
   })
   output$PCAColumn2 <- renderUI({
-    per_var <- pcaComps()
-    per_var <- paste0("Comp ",1:length(per_var), ". ", per_var, "% variance")
-    selectInput("PCAcolumn2", "Y Variable:", per_var, selected = 2)
+    selectInput("PCAselect2", "Y Variable:", pcaComps())
   })
   
-  output$PCAPlot <- renderText({
+  output$PCAPlot <- renderPlot({
     
     # get chosen columns
-    col1 <- input$PCAcolumn1
-    strsplit(col1, " ")[[1]][2]
+    col1 <- input$PCAselect1
+    a <- strsplit(col1, " ")[[1]][2]
     a <- strsplit(a,"")[[1]]
     a <- a[1:(length(a) - 1)]
     col1 <- paste0(a, collapse = "")
     col1 <- as.numeric(col1)
+    
 
     
-    col2 <- input$PCAcolumn2
-    strsplit(col2, " ")[[1]][2]
+    col2 <- input$PCAselect2
+    a <- strsplit(col2, " ")[[1]][2]
     a <- strsplit(a,"")[[1]]
     a <- a[1:(length(a) - 1)]
     col2 <- paste0(a, collapse = "")
     col2 <- as.numeric(col2)
+   
     
-    col <- c(col1, col2)
+    
+    info <- dataSet()
+    data <- info$data
+    sample <- info$sample
+    train <- info$train
+    test <- info$test
+    
+    nam <- 1:length(info$data[1,])
+    names(nam) <- colnames(info$data)
+    cl1 <- nam[input$columnclass]
+    
+    
+    cl <- data[,cl1]
+    cltrain <- cl[sample]
+    cltest <- cl[-sample]
+    data <- data[,-(cl1)]
+    
+    
+    train <- data[sample,]
+    test <- data[-sample,]
+    
+    if (info$scale == T | info$center == T) {
+      train <- scale(train, scale = info$scale, center = info$center)
+      test <- scale(test, scale = attributes(train)$"scaled:scale", center = attributes(train)$"scaled:center")
+    }
+    
+    pca1 <- prcomp(train)
+    per_var <- round(100*pca1$sdev^2 / sum(pca1$sdev^2),2)
+    per_var <- paste0("Comp ",1:length(per_var), ". ", per_var, "% variance")
+    
+    plot(pca1$x[,col1], pca1$x[,col2], xlab = per_var[col1], ylab = per_var[col2], col = as.factor(cltrain))
+    
   })
   
 }
