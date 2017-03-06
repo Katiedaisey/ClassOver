@@ -24,7 +24,7 @@ shinyServer(function(input, output) {
     }
     
     
-    
+    set.seed(2017)
     sample <- 1:length(data[,1])
     sample <- sample(sample, length(data[,1]))
     
@@ -65,6 +65,14 @@ shinyServer(function(input, output) {
     selectInput("columnclass", "Class Variable:", datacolumns(), selected = 2)
   })
   
+  
+
+  
+
+
+  
+  
+  
   # generate histogram depending on column selected
   output$distPlot <- renderPlot({
     info <- dataSet()
@@ -76,7 +84,7 @@ shinyServer(function(input, output) {
     bins <- seq(min(x), max(x), length.out = input$bins + 1)
     
     # draw the histogram with the specified number of bins
-    hist(x, breaks = bins, col = input$color, border = 'white', main = "Histogram of Variable X")
+    hist(x, breaks = bins, col = input$color, border = 'white', main = paste0("Histogram of ", input$column1))
   })
   
   output$dist2Plot <- renderPlot({
@@ -89,7 +97,7 @@ shinyServer(function(input, output) {
     bins <- seq(min(x), max(x), length.out = input$bins + 1)
     
     # draw the histogram with the specified number of bins
-    hist(x, breaks = bins, col = input$color, border = 'white', main = "Histogram of Variable Y")
+    hist(x, breaks = bins, col = input$color, border = 'white', main = paste0("Histogram of ", input$column2))
   })
   
   
@@ -99,14 +107,18 @@ shinyServer(function(input, output) {
     train <- data[info$sample,]
     test <- data[-info$sample,]
     
+    if (info$scale == T | info$center == T) {
+      train <- scale(train, scale = info$scale, center = info$center)
+      test <- scale(test, scale = attributes(train)$"scaled:scale", center = attributes(train)$"scaled:center")
+    }
     
-    
-    plot(train[,input$column1], train[,input$column2], pch = 20, col = 1, 
-         xlim = c(min(data[,input$column1]), max(data[,input$column1])), ylim = c(min(data[,input$column2]), max(data[,input$column2])),
-         xlab = input$column1, ylab = input$column2)
-    points(test[,input$column1], test[,input$column2], pch = 20, col = 2)
+    plot(data[,input$column1], data[,input$column2])
   })
   
+  
+  
+  
+  # knn
   output$knnPlot <- renderPlot({
     info <- dataSet()
     data <- info$data
@@ -124,15 +136,279 @@ shinyServer(function(input, output) {
     cltest <- cl[-sample]
     data <- data[,-(cl1)]
     
-    data <- scale(data, scale = info$scale, center = info$center)
+    
     train <- data[sample,]
     test <- data[-sample,]
+    
+    if (info$center == T) {
+      train <- scale(train, scale = F, center = info$center)
+      test <- scale(test, scale = F, center = attributes(train)$"scaled:center")
+    }
+    if (info$scale == T) {
+    train <- scale(train, scale = info$scale, center = F)
+    test <- scale(test, scale = attributes(train)$"scaled:scale", center = F)
+    }
+    
     
     knn1 <- class:::knn(train = train, test = test, cl = cltrain, k = input$k)
     plot(1:length(cltest), knn1, pch = 20, col = cltest,
          xlab = "Sample No", ylab = "Predicted Class")
     
   })
+  
+  
+  
+  
+  
+  
+  
+  # PCA
+  
+  # PCA tab
+  minNcomp <- reactive({
+    info <- dataSet()
+    info <- dim(info$data[,-1])
+    min(info)
+  })
+  
+  output$ncompSlider <- renderUI({
+    info <- dataSet()
+    info <- dim(info$data)
+    sliderInput("ncomp", "Number of Components", min = 1, max = minNcomp(), value = minNcomp(), step = 1, round = T)
+  })
+  
+  output$PCAncompPlot <- renderPlot({
+    info <- dataSet()
+    data <- info$data
+    sample <- info$sample
+    train <- info$train
+    test <- info$test
+    
+    nam <- 1:length(info$data[1,])
+    names(nam) <- colnames(info$data)
+    cl1 <- nam[input$columnclass]
+    
+    
+    cl <- data[,cl1]
+    cltrain <- cl[sample]
+    cltest <- cl[-sample]
+    data <- data[,-(cl1)]
+    
+    
+    train <- data[sample,]
+    test <- data[-sample,]
+    
+    if (info$scale == T | info$center == T) {
+    train <- scale(train, scale = info$scale, center = info$center)
+    test <- scale(test, scale = attributes(train)$"scaled:scale", center = attributes(train)$"scaled:center")
+    }
+    
+    pca1 <- prcomp(train)
+    
+    plot(pca1)
+  })
+  
+  pcaComps <- reactive({
+    info <- dataSet()
+    data <- info$data
+    sample <- info$sample
+    train <- info$train
+    test <- info$test
+    
+    nam <- 1:length(info$data[1,])
+    names(nam) <- colnames(info$data)
+    cl1 <- nam[input$columnclass]
+    
+    
+    cl <- data[,cl1]
+    cltrain <- cl[sample]
+    cltest <- cl[-sample]
+    data <- data[,-(cl1)]
+    
+    
+    train <- data[sample,]
+    test <- data[-sample,]
+    
+    if (info$scale == T | info$center == T) {
+      train <- scale(train, scale = info$scale, center = info$center)
+      test <- scale(test, scale = attributes(train)$"scaled:scale", center = attributes(train)$"scaled:center")
+    }
+    
+    pca1 <- prcomp(train)
+    per_var <- round(100*pca1$sdev^2 / sum(pca1$sdev^2),2)
+    per_var <- paste0("Comp ",1:length(per_var), ". ", per_var, "% variance")
+  })
+  
+
+  
+  
+  output$PCAColumn1 <- renderUI({
+    selectInput("PCAselect1", "X Variable:", pcaComps(), selected = pcaComps()[1])
+  })
+  output$PCAColumn2 <- renderUI({
+    selectInput("PCAselect2", "Y Variable:", pcaComps(), selected = pcaComps()[2])
+  })
+  
+  
+  output$selectPCAColumn1 <- renderUI({
+    selectInput("pcacolumn1", "X Variable:", datacolumns(), selected = datacolumns()[1])
+  })
+  output$selectPCAColumn2 <- renderUI({
+    selectInput("pcacolumn2", "Y Variable:", datacolumns(), selected = datacolumns()[2])
+  })
+  
+  output$PCAPlot <- renderPlot({
+    
+    # get chosen columns
+    col1 <- input$PCAselect1
+    a <- strsplit(col1, " ")[[1]][2]
+    a <- strsplit(a,"")[[1]]
+    a <- a[1:(length(a) - 1)]
+    col1 <- paste0(a, collapse = "")
+    col1 <- as.numeric(col1)
+    
+
+    
+    col2 <- input$PCAselect2
+    a <- strsplit(col2, " ")[[1]][2]
+    a <- strsplit(a,"")[[1]]
+    a <- a[1:(length(a) - 1)]
+    col2 <- paste0(a, collapse = "")
+    col2 <- as.numeric(col2)
+   
+    
+    
+    info <- dataSet()
+    data <- info$data
+    sample <- info$sample
+    train <- info$train
+    test <- info$test
+    
+    nam <- 1:length(info$data[1,])
+    names(nam) <- colnames(info$data)
+    cl1 <- nam[input$columnclass]
+    
+    
+    cl <- data[,cl1]
+    cltrain <- cl[sample]
+    cltest <- cl[-sample]
+    data <- data[,-(cl1)]
+    
+    
+    train <- data[sample,]
+    test <- data[-sample,]
+    
+    if (info$scale == T | info$center == T) {
+      train <- scale(train, scale = info$scale, center = info$center)
+      test <- scale(test, scale = attributes(train)$"scaled:scale", center = attributes(train)$"scaled:center")
+    }
+    
+    pca1 <- prcomp(train)
+    per_var <- round(100*pca1$sdev^2 / sum(pca1$sdev^2),2)
+    per_var <- paste0("Comp ",1:length(per_var), ". ", per_var, "% variance")
+    
+    plot(pca1$x[,col1], pca1$x[,col2], xlab = per_var[col1], ylab = per_var[col2], col = as.factor(cltrain))
+    
+  })
+  
+  
+  output$PCAProj <- renderPlot({
+
+    info <- dataSet()
+    data <- info$data
+    sample <- info$sample
+    train <- info$train
+    test <- info$test
+    
+    nam <- 1:length(info$data[1,])
+    names(nam) <- colnames(info$data)
+    cl1 <- nam[input$columnclass]
+    
+    
+    cl <- data[,cl1]
+    cltrain <- cl[sample]
+    cltest <- cl[-sample]
+    data <- data[,-(cl1)]
+    
+    
+    train <- data[sample,]
+    test <- data[-sample,]
+    
+    if (info$scale == T | info$center == T) {
+      train <- scale(train, scale = info$scale, center = info$center)
+      test <- scale(test, scale = attributes(train)$"scaled:scale", center = attributes(train)$"scaled:center")
+    }
+    
+    pca1 <- prcomp(train, center = info$center, scale. = info$scale)
+    
+    newdata <- as.matrix(test) %*% (pca1$rotation)
+    knn1 <- class:::knn(train = pca1$x[,1:input$ncomp], test = newdata[,1:input$ncomp], cl = cltrain, k = input$k)
+    
+    # get chosen columns
+    col1 <- input$PCAselect1
+    a <- strsplit(col1, " ")[[1]][2]
+    a <- strsplit(a,"")[[1]]
+    a <- a[1:(length(a) - 1)]
+    col1 <- paste0(a, collapse = "")
+    col1 <- as.numeric(col1)
+    
+    
+    
+    col2 <- input$PCAselect2
+    a <- strsplit(col2, " ")[[1]][2]
+    a <- strsplit(a,"")[[1]]
+    a <- a[1:(length(a) - 1)]
+    col2 <- paste0(a, collapse = "")
+    col2 <- as.numeric(col2)
+    
+    # plot
+    plot(pca1$x[,col1], pca1$x[,col2], pch = 20, col = cltrain)
+    points(newdata[,col1], newdata[,col2], pch = 4, col = knn1)
+    
+  })
+  
+  
+  output$PCAknnplot <- renderPlot({
+    info <- dataSet()
+    data <- info$data
+    sample <- info$sample
+    train <- info$train
+    test <- info$test
+    
+    nam <- 1:length(info$data[1,])
+    names(nam) <- colnames(info$data)
+    cl1 <- nam[input$columnclass]
+    
+    
+    cl <- data[,cl1]
+    cltrain <- cl[sample]
+    cltest <- cl[-sample]
+    data <- data[,-(cl1)]
+    
+    
+    train <- data[sample,]
+    test <- data[-sample,]
+    
+    if (info$center == T) {
+      train <- scale(train, scale = F, center = info$center)
+      test <- scale(test, scale = F, center = attributes(train)$"scaled:center")
+    }
+    if (info$scale == T) {
+      train <- scale(train, scale = info$scale, center = F)
+      test <- scale(test, scale = attributes(train)$"scaled:scale", center = F)
+    }
+    
+    
+    pca1 <- prcomp(train, center = info$center, scale. = info$scale)
+    
+    newdata <- as.matrix(test) %*% (pca1$rotation)
+    knn1 <- class:::knn(train = pca1$x[,1:input$ncomp], test = newdata[,1:input$ncomp], cl = cltrain, k = input$k)
+    plot(1:length(cltest), knn1, pch = 20, col = cltest,
+         xlab = "Sample No", ylab = "Predicted Class")
+    
+  })
+  
+
   
 }
 )

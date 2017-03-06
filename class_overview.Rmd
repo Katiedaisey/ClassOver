@@ -1,0 +1,268 @@
+---
+title: "Classification Techniques"
+author: "Katie Daisey"
+output: html_notebook
+---
+
+```{r, setup}
+datafile <- "/Users/katiedaisey/Desktop/data/chemometrics/Archaeometry_data_2007.csv"
+#datafile <- "/Users/katiedaisey/Desktop/local/data/chemometrics/Archaeometry_data_2007.csv"
+hmlcdir <- "/Users/katiedaisey/Desktop/hmlc"
+
+library(class)
+library(caret)
+library(ggplot2)
+library(pls)
+library(randomForest)
+library(rpart)
+library(devtools)
+install(hmlcdir)
+library(hmlc)
+```
+
+
+# Data
+
+```{r}
+data <- read.csv(datafile)
+train <- data[c(T,F),]
+test <- data[c(F,T),]
+```
+
+```{r}
+str(data)
+```
+
+There are 188 samples each with 11 measured variables. Two "variables" are actual information about the sample, sample name and sample class. The remaining 9 variables are measurements of various elements, likely concentrations of some sort (ie parts per million or parts per billion).
+
+```{r}
+palette <- rainbow(n = 7)
+ggplot(data, aes(Class)) + geom_bar(fill = palette) 
+```
+
+But the samples are not evenly distributed across the classes. Class 4 only has 2 samples while Class 2 has 56 samples. As might be expected, this makes classification of Class 4 samples difficult.
+
+
+# k-Nearest Neighbors
+
+The simplest classification technique is k-nearest neighbors, or knn.
+
+```{r knn_example}
+colors <- palette[train[,2]]
+
+plot(train[,5:6], pch = 20, col = palette[train[,2]])
+points(test[1,5:6], pch = 4, col = 1, cex = 2)
+```
+
+```{r}
+knn_test <- knn(train = train[,3:11], test = test[,3:11], cl = train[,2], k = 1)
+plot(train[,5:6], pch = 20, col = palette[train[,2]])
+points(test[1,5:6], pch = 4, col = palette[knn_test][1], cex = 2)
+```
+```{r}
+plot(train[,5:6], pch = 20, col = palette[train[,2]])
+points(test[,5:6], pch = 4, col =1, cex = 2)
+plot(train[,5:6], pch = 20, col = palette[train[,2]])
+points(test[,5:6], pch = 4, col = palette[knn_test], cex = 2)
+```
+
+
+```{r}
+plot(1:94, knn_test, pch = 20, col = palette[test[,2]])
+```
+
+
+```{r}
+knn_test <- knn(train = scale(train[,3:11]), test = scale(test[,3:11]), cl = train[,2], k = 1)
+plot(1:94, knn_test, pch = 20, col = palette[test[,2]])
+```
+
+
+
+
+# PCA Projection
+
+```{r}
+scaled_train <- scale(train[,3:11])
+pca1 <- prcomp(scaled_train)
+plot(pca1)
+
+pairs(pca1$x, pch = 20, col = palette[train[,2]])
+
+```
+
+
+```{r}
+X <- pca1$rotation
+tmp <- scale(test[,3:11], center = attributes(scaled_train)$"scaled:center", scale = attributes(scaled_train)$"scaled:scale")
+new_data <- tmp %*% X
+
+plot(pca1$x[,1:2], pch = 20, col = palette[train[,2]])
+points(new_data[,1:2], pch = 4, col = palette[test[,2]])
+
+knn2 <- knn(train = pca1$x[,1:6], test = new_data[,1:6], cl = train[,2])
+plot(pca1$x[,1:2], pch = 20, col = palette[train[,2]])
+points(new_data[,1:2], pch = 4, col = palette[knn2])
+
+plot(1:94, knn2, pch = 20, col = palette[test[,2]])
+```
+
+
+
+
+# Partial Least Squares (Discriminant Analysis)
+
+ 
+
+```{r}
+train2 <- data.frame(Class = train[,2])
+train2$Data <- as.matrix(train[,3:11])
+
+test2 <- data.frame(Class = test[,2])
+test2$Data <- as.matrix(test[,3:11])
+```
+
+
+```{r}
+pls1 <- plsr(Class~Data, data = train2, ncomp = 9, validation = "CV")
+plot(pls1, plottype = "validation")
+pls1 <- predict(pls1, newdata = test2$Data, comps = 5)
+
+plot(1:94, pls1, pch = 20, col = palette[test2$Class], ylim = c(0,8))
+```
+
+
+The more correct way to do classification with PLS is PLSDA - Partial Least Squares Discriminant Analysis.
+
+```{r}
+?plsda
+pls2 <- plsda(train2$Data, as.factor(train2$Class), ncomp = 5, type = "class")
+pls2 <- predict(pls2, newdata = test2$Data, ncomp = 5)
+plot(1:94, pls2, pch = 20, col = palette[test2$Class])
+```
+
+
+
+# CART
+
+```{r}
+tmp1 <- as.data.frame(train2$Data)
+tmp2 <- as.data.frame(test2$Data)
+cart1 <- rpart(Class~Data, data = train2, method = "class")
+cart1 <- predict(cart1, newdata = test2, type = "class")
+plot(1:94, cart1, pch = 20, col = palette[test2$Class])
+```
+
+
+
+
+# Random Forest
+
+```{r}
+rF1 <- randomForest(x = train2$Data, y = train2$Class)
+rF1 <- predict(rF1, newdata = test2$Data)
+
+plot(1:94, rF1, pch = 20, col = palette[test$Class])
+```
+
+
+```{r}
+rF1 <- randomForest(x = train2$Data, y = as.factor(train2$Class))
+rF1 <- predict(rF1, newdata = test2$Data)
+plot(1:94, rF1, pch = 20, col = palette[test2$Class])
+```
+
+
+
+
+
+# HMLC
+
+```{r}
+
+gen_hmlc_tree <- function(classes, data, dist_method = "euclidean", hclust_method = "ward.D2") {
+  
+  tmp_df <- data.frame(Class = classes)
+  tmp_df$Data <- data
+  centers <- aggregate(Data~Class, data = tmp_df, FUN = mean)
+  
+  h1 <- stats:::hclust(stats:::dist(centers, method = dist_method), method = hclust_method)
+  h1 <- hmlc:::hclust_to_hltree(h1)
+  
+  return(h1)
+}
+# make tree
+h1 <- gen_hmlc_tree(train2$Class, train2$Data)
+
+flatten <- function(results, leaf_nodes) {
+  results <- results[,leaf_nodes]
+  
+  out <- rep(0, length(results[,1]))
+  
+  for (i in leaf_nodes) {
+    out[results[,i] == 1] <- i
+  }
+  
+  return(out)
+}  
+
+labels <- create_labels(train2$Class, hltree = h1, depth = "full")
+```
+
+
+
+
+```{r}
+hmlc1 <- hmlc:::hsc.lcn(data = train2$Data, test = test2$Data, labels = labels, hltree = h1, policy = "actual", classifier = "knn")
+a <- flatten(hmlc1, 1:7)
+plot(1:94, a, pch = 20, col = palette[test2$Class])
+```
+
+
+```{r}
+hmlc1 <- hmlc:::hsc.lcn(data = train2$Data, test = test2$Data, labels = labels, hltree = h1, policy = "actual", classifier = "rpart")
+a <- flatten(hmlc1, 1:7)
+plot(1:94, a, pch = 20, col = palette[test2$Class])
+```
+
+
+
+```{r}
+hmlc1 <- hmlc:::hsc.lcn(data = train2$Data, test = test2$Data, labels = labels, hltree = h1, policy = "actual", classifier = "randomForest")
+a <- flatten(hmlc1, 1:7)
+plot(1:94, a, pch = 20, col = palette[test2$Class])
+```
+
+
+
+
+```{r}
+hmlc1 <- hmlc:::hlcl(data = train2$Data, test = test2$Data, labels = labels, hltree = h1, policy = "actual", classifier = "randomForest")
+a <- flatten(hmlc1, 1:7)
+plot(1:94, a, pch = 20, col = palette[test2$Class])
+```
+
+
+
+
+```{r}
+hmlc1 <- hmlc:::hlcpn(data = train2$Data, test = test2$Data, labels = labels, hltree = h1, policy = "siblings", classifier = "randomForest")
+a <- flatten(hmlc1, 1:7)
+plot(1:94, a, pch = 20, col = palette[test2$Class])
+```
+
+
+
+```{r}
+hmlc1 <- hmlc:::hsc.lcn(data = train2$Data, test = test2$Data, labels = labels, hltree = h1, policy = "actual", classifier = "svm")
+a <- flatten(hmlc1, 1:7)
+plot(1:94, a, pch = 20, col = palette[test2$Class])
+```
+
+
+
+
+
+
+
+
