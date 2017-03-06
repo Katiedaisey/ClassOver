@@ -97,7 +97,9 @@ shinyUI(fluidPage(
                  ),
                  mainPanel(plotOutput("PCAncompPlot"),
                            plotOutput("PCAPlot"),
-                           plotOutput("PCAProj"))
+                           plotOutput("PCAProj"),
+                           plotOutput("PCAknnplot")
+                           )
                )       
                       
                       

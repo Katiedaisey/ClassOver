@@ -24,7 +24,7 @@ shinyServer(function(input, output) {
     }
     
     
-    
+    set.seed(2017)
     sample <- 1:length(data[,1])
     sample <- sample(sample, length(data[,1]))
     
@@ -339,27 +339,72 @@ shinyServer(function(input, output) {
       test <- scale(test, scale = attributes(train)$"scaled:scale", center = attributes(train)$"scaled:center")
     }
     
-    pca1 <- prcomp(train, center = F, scale. = F)
+    pca1 <- prcomp(train, center = info$center, scale. = info$scale)
     
-    backproj <- pca1$x[,1:input$ncomp] %*% t(pca1$rotation[,1:input$ncomp])
-    if (info$scale == T) {
-      backproj <- scale(backproj, center = FALSE , scale=1/attributes(train)$"scaled:scale")
-    }
+    newdata <- as.matrix(test) %*% (pca1$rotation)
+    knn1 <- class:::knn(train = pca1$x[,1:input$ncomp], test = newdata[,1:input$ncomp], cl = cltrain, k = input$k)
+    
+    # get chosen columns
+    col1 <- input$PCAselect1
+    a <- strsplit(col1, " ")[[1]][2]
+    a <- strsplit(a,"")[[1]]
+    a <- a[1:(length(a) - 1)]
+    col1 <- paste0(a, collapse = "")
+    col1 <- as.numeric(col1)
+    
+    
+    
+    col2 <- input$PCAselect2
+    a <- strsplit(col2, " ")[[1]][2]
+    a <- strsplit(a,"")[[1]]
+    a <- a[1:(length(a) - 1)]
+    col2 <- paste0(a, collapse = "")
+    col2 <- as.numeric(col2)
+    
+    # plot
+    plot(pca1$x[,col1], pca1$x[,col2], pch = 20, col = cltrain)
+    points(newdata[,col1], newdata[,col2], pch = 4, col = knn1)
+    
+  })
+  
+  
+  output$PCAknnplot <- renderPlot({
+    info <- dataSet()
+    data <- info$data
+    sample <- info$sample
+    train <- info$train
+    test <- info$test
+    
+    nam <- 1:length(info$data[1,])
+    names(nam) <- colnames(info$data)
+    cl1 <- nam[input$columnclass]
+    
+    
+    cl <- data[,cl1]
+    cltrain <- cl[sample]
+    cltest <- cl[-sample]
+    data <- data[,-(cl1)]
+    
+    
+    train <- data[sample,]
+    test <- data[-sample,]
+    
     if (info$center == T) {
-      backproj <- scale(backproj, center = -1 * attributes(train)$"scaled:center", scale=FALSE)
+      train <- scale(train, scale = F, center = info$center)
+      test <- scale(test, scale = F, center = attributes(train)$"scaled:center")
+    }
+    if (info$scale == T) {
+      train <- scale(train, scale = info$scale, center = F)
+      test <- scale(test, scale = attributes(train)$"scaled:scale", center = F)
     }
     
     
-    colnames(backproj) <- colnames(data)
+    pca1 <- prcomp(train, center = info$center, scale. = info$scale)
     
-    knn1 <- class:::knn(train = train, test = test, cl = cltrain, k = input$k)
-    newdata <- pca1$r%*% 
-    plot(backproj[,input$pcacolumn1], backproj[,input$pcacolumn2], pch = 20, col = as.factor(cltrain),
-         xlab = input$pcacolumn1, ylab = input$pcacolumn2)
-    
-    
-    
-    
+    newdata <- as.matrix(test) %*% (pca1$rotation)
+    knn1 <- class:::knn(train = pca1$x[,1:input$ncomp], test = newdata[,1:input$ncomp], cl = cltrain, k = input$k)
+    plot(1:length(cltest), knn1, pch = 20, col = cltest,
+         xlab = "Sample No", ylab = "Predicted Class")
     
   })
   

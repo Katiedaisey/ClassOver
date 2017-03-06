@@ -5,8 +5,8 @@ output: html_notebook
 ---
 
 ```{r, setup}
-#datafile <- "/Users/katiedaisey/Desktop/data/chemometrics/Archaeometry_data_2007.csv"
-datafile <- "/Users/katiedaisey/Desktop/local/data/chemometrics/Archaeometry_data_2007.csv"
+datafile <- "/Users/katiedaisey/Desktop/data/chemometrics/Archaeometry_data_2007.csv"
+#datafile <- "/Users/katiedaisey/Desktop/local/data/chemometrics/Archaeometry_data_2007.csv"
 hmlcdir <- "/Users/katiedaisey/Desktop/hmlc"
 
 library(class)
@@ -58,6 +58,12 @@ points(test[1,5:6], pch = 4, col = 1, cex = 2)
 knn_test <- knn(train = train[,3:11], test = test[,3:11], cl = train[,2], k = 1)
 plot(train[,5:6], pch = 20, col = palette[train[,2]])
 points(test[1,5:6], pch = 4, col = palette[knn_test][1], cex = 2)
+```
+```{r}
+plot(train[,5:6], pch = 20, col = palette[train[,2]])
+points(test[,5:6], pch = 4, col =1, cex = 2)
+plot(train[,5:6], pch = 20, col = palette[train[,2]])
+points(test[,5:6], pch = 4, col = palette[knn_test], cex = 2)
 ```
 
 
