@@ -1,0 +1,134 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+de la Mata-Espinosa P, Bosque-Sendra JM, Bro R, Cuadros-Rodriguez L, Discriminating olive and non-olive oils using HPLC-CAD and chemometrics, Analytical and Bioanalytical Chemistry, 2011a, 399, 2083-2092.
+de la Mata-Espinosa P, Bosque-Sendra JM, Bro R, Cuadros-Rodriguez L, Olive oil quantification of edible vegetable oil blends using triacylglycerols chromatographic fingerprints and chemometric tools, Talanta, 2011b, 85, 177-182.
+
+```{r}
+data()
+tmp <- readMat("/Users/katiedaisey/Downloads/HPLCforweb.mat")
+data <- tmp$HPLCforweb$data
+label <- tmp$HPLCforweb$label[[1]][[1]]
+class <- tmp$HPLCforweb$class[[1]][[1]]
+matplot(t(data), type = "l",
+        xlab = "Time", ylab = "AU")
+```
+
+```{r}
+cltrain <- class[c(T,F)]
+cltest <- class[c(F,T)]
+train <- data[c(T,F),]
+test <- data[c(F,T),]
+
+matplot(t(data), type = "l", lty = 1, col = rep(c(1,2), times = 60))
+```
+
+
+
+
+```{r}
+matplot(t(data), type = "l", lty = 1, col = class + 1,
+        xlab = "Time", ylab = "AU", main = "Olive Oils")
+```
+
+
+
+
+
+
+```{r}
+?knn
+knn1 <- class:::knn(train, test, cl = cltrain, k = 1)
+plot(1:60, knn1, col = cltest, pch = 20)
+```
+
+
+
+```{r}
+scale_train <- scale(train, center = T, scale = T)
+scale_test <- scale(test, center = attributes(scale_train)$`scaled:center`, scale = attributes(scale_train)$`scaled:scale`)
+
+
+matplot(t(scale_train), type = "l", lty = 1, col = cltrain,
+        xlab = "Time", ylab = "AU, Scaled, Centered")
+```
+
+```{r}
+knn2 <- class:::knn(scale_train, scale_test, cltrain, k = 1)
+plot(1:60, knn2, col = cltest, pch = 20,
+     xlab = "Sample No.", ylab = "Predicted Class",
+     main = "knn, scaled")
+```
+
+
+```{r}
+
+```
+
+
+
+
+```{r}
+hmlcdir <- "/Users/katiedaisey/Desktop/hmlc"
+
+library(class)
+library(caret)
+library(ggplot2)
+library(pls)
+library(randomForest)
+library(rpart)
+library(devtools)
+install(hmlcdir)
+library(hmlc)
+```
+
+
+
+```{r}
+gen_hmlc_tree <- function(classes, data, dist_method = "euclidean", hclust_method = "ward.D2") {
+  
+  tmp_df <- data.frame(Class = classes)
+  tmp_df$Data <- as.matrix(data)
+  centers <- aggregate(Data~Class, data = tmp_df, FUN = mean)
+  
+  h1 <- stats:::hclust(stats:::dist(centers, method = dist_method), method = hclust_method)
+  h1 <- hmlc:::hclust_to_hltree(h1)
+  
+  return(h1)
+}
+# make tree
+h1 <- gen_hmlc_tree(cltrain, train)
+
+flatten <- function(results, leaf_nodes) {
+  results <- results[,leaf_nodes]
+  
+  out <- rep(0, length(results[,1]))
+  
+  for (i in leaf_nodes) {
+    out[results[,i] == 1] <- i
+  }
+  
+  return(out)
+}  
+library(hmlc)
+labels <- create_labels(cltrain, hltree = h1, depth = "full")
+plot(h1)
+```
+
+
+```{r}
+hmlc1 <- hmlc:::hsc.lcn(data = train, test = test, labels = labels, hltree = h1, policy = "siblings", classifier = "randomForest", k = 1)
+a <- flatten(hmlc1, 1:3)
+
+plot(1:60, a, pch = 20, col = cltest, 
+     xlab = "Sample No.", ylab = "Predicted Class")
+```
+
+
+
+
+
