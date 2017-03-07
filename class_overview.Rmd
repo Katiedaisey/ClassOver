@@ -16,8 +16,8 @@ library(pls)
 library(randomForest)
 library(rpart)
 library(devtools)
-install(hmlcdir)
-library(hmlc)
+#install(hmlcdir)
+#library(hmlc)
 ```
 
 
@@ -34,6 +34,15 @@ str(data)
 ```
 
 There are 188 samples each with 11 measured variables. Two "variables" are actual information about the sample, sample name and sample class. The remaining 9 variables are measurements of various elements, likely concentrations of some sort (ie parts per million or parts per billion).
+
+```{r}
+matplot(t(scale(data[,3:11], center = T)), type = "l", lty = 1, col = data[,2], 
+        xaxt = "n", ylab = "Relative Values")
+axis(1, at = 1:9, labels = colnames(data[,3:11]), las = 2)
+boxplot(data[data[,2] == 3,3:11], col = 3)
+table(data[,2])
+```
+
 
 ```{r}
 palette <- rainbow(n = 7)
@@ -53,6 +62,9 @@ colors <- palette[train[,2]]
 plot(train[,5:6], pch = 20, col = palette[train[,2]])
 points(test[1,5:6], pch = 4, col = 1, cex = 2)
 ```
+```{r}
+plot(scale(train[,5:6], scale = T), pch = 20, col = palette[train[,2]])
+```
 
 ```{r}
 knn_test <- knn(train = train[,3:11], test = test[,3:11], cl = train[,2], k = 1)
@@ -71,10 +83,22 @@ points(test[,5:6], pch = 4, col = palette[knn_test], cex = 2)
 plot(1:94, knn_test, pch = 20, col = palette[test[,2]])
 ```
 
+```{r}
+knn_test <- knn(train = train[,3:11], test = test[,3:11], cl = train[,2], k = 1)
+plot(1:94, knn_test, pch = 20, col = palette[test[,2]],
+                xlab = "Sample No", ylab = "Predicted Class")
+```
+
+
+
 
 ```{r}
-knn_test <- knn(train = scale(train[,3:11]), test = scale(test[,3:11]), cl = train[,2], k = 1)
-plot(1:94, knn_test, pch = 20, col = palette[test[,2]])
+scaled_train <- scale(train[,3:11])
+scaled_test <- scale(test[,3:11], center = attributes(scaled_train)$`scaled:center`, scale = attributes(scaled_train)$`scaled:scale`)
+
+knn_test <- knn(train = scaled_train, test = scaled_test, cl = train[,2], k = 1)
+plot(1:94, knn_test, pch = 20, col = palette[test[,2]],
+     xlab = "Sample No.", ylab = "Predicted class")
 ```
 
 
@@ -83,30 +107,65 @@ plot(1:94, knn_test, pch = 20, col = palette[test[,2]])
 # PCA Projection
 
 ```{r}
-scaled_train <- scale(train[,3:11])
-pca1 <- prcomp(scaled_train)
+pca1 <- prcomp(train[,3:11], center = F, scale. = F)
 plot(pca1)
 
-pairs(pca1$x, pch = 20, col = palette[train[,2]])
-
+#pairs(pca1$x, pch = 20, col = palette[train[,2]])
 ```
 
 
 ```{r}
-X <- pca1$rotation
-tmp <- scale(test[,3:11], center = attributes(scaled_train)$"scaled:center", scale = attributes(scaled_train)$"scaled:scale")
-new_data <- tmp %*% X
+new_data <- as.matrix(test[,3:11]) %*% pca1$rotation
 
 plot(pca1$x[,1:2], pch = 20, col = palette[train[,2]])
 points(new_data[,1:2], pch = 4, col = palette[test[,2]])
 
-knn2 <- knn(train = pca1$x[,1:6], test = new_data[,1:6], cl = train[,2])
+knn1 <- knn(train = pca1$x, test = new_data, cl = train[,2])
+plot(pca1$x[,1:2], pch = 20, col = palette[train[,2]])
+points(new_data[,1:2], pch = 4, col = palette[knn1])
+plot(pca1$x[,2:3], pch = 20, col = palette[train[,2]])
+points(new_data[,2:3], pch = 4, col = palette[knn1])
+
+knn2 <- knn(train = pca1$x[,1:3], test = new_data[,1:3], cl = train[,2])
+plot(pca1$x[,1:2], pch = 20, col = palette[train[,2]])
+points(new_data[,1:2], pch = 4, col = palette[knn2])
+plot(pca1$x[,2:3], pch = 20, col = palette[train[,2]])
+points(new_data[,2:3], pch = 4, col = palette[knn2])
+
+knn3 <- knn(train = pca1$x[,2:7], test = new_data[,2:7], cl = train[,2])
+plot(pca1$x[,2:3], pch = 20, col = palette[train[,2]])
+points(new_data[,2:3], pch = 4, col = palette[knn3])
+
+plot(1:94, knn1, pch = 20, col = palette[test[,2]])
+plot(1:94, knn2, pch = 20, col = palette[test[,2]])
+plot(1:94, knn3, pch = 20, col = palette[test[,2]])
+```
+
+
+```{r}
+pca1 <- prcomp(scaled_train, center = F, scale. = F)
+plot(pca1)
+new_data <- as.matrix(scaled_test) %*% pca1$rotation
+
+plot(pca1$x[,1:2], pch = 20, col = palette[train[,2]])
+points(new_data[,1:2], pch = 4, col = palette[test[,2]])
+
+knn1 <- knn(train = pca1$x, test = new_data, cl = train[,2])
+plot(pca1$x[,1:2], pch = 20, col = palette[train[,2]])
+points(new_data[,1:2], pch = 4, col = palette[knn1])
+
+knn2 <- knn(train = pca1$x[,1:3], test = new_data[,1:3], cl = train[,2])
 plot(pca1$x[,1:2], pch = 20, col = palette[train[,2]])
 points(new_data[,1:2], pch = 4, col = palette[knn2])
 
-plot(1:94, knn2, pch = 20, col = palette[test[,2]])
-```
+knn3 <- knn(train = pca1$x[,2:6], test = new_data[,2:6], cl = train[,2])
+plot(pca1$x[,1:2], pch = 20, col = palette[train[,2]])
+points(new_data[,1:2], pch = 4, col = palette[knn3])
 
+plot(1:94, knn1, pch = 20, col = palette[test[,2]])
+plot(1:94, knn2, pch = 20, col = palette[test[,2]])
+plot(1:94, knn3, pch = 20, col = palette[test[,2]])
+```
 
 
 
@@ -126,19 +185,45 @@ test2$Data <- as.matrix(test[,3:11])
 ```{r}
 pls1 <- plsr(Class~Data, data = train2, ncomp = 9, validation = "CV")
 plot(pls1, plottype = "validation")
-pls1 <- predict(pls1, newdata = test2$Data, comps = 5)
+pls1 <- predict(pls1, newdata = test2$Data, comps = 4)
 
-plot(1:94, pls1, pch = 20, col = palette[test2$Class], ylim = c(0,8))
+plot(1:94, pls1, pch = 20, col = palette[test2$Class], 
+     ylim = c(1,7), xlab = "Sample No.", ylab = "Predicted Class")
 ```
 
 
 The more correct way to do classification with PLS is PLSDA - Partial Least Squares Discriminant Analysis.
 
 ```{r}
+color <- iris$Species
+color <- cbind(color, 0)
+color <- cbind(color, 0)
+color <- cbind(color, 0)
+color[color[,1] == 1,2] <- 1
+color[color[,1] == 2,3] <- 1
+color[color[,1] == 3,4] <- 1
+color[,2:4] <- color[,2:4] + 1
+plot(iris[,3:4], pch = 20, col = color[,1])
+a <- lm(iris[,4]~iris[,3])
+abline(a[[1]][1],a[[1]][[2]], col = "red")
+plot(iris[,3:4], pch = 20, col = color[,2])
+plot(iris[,3:4], pch = 20, col = color[,3])
+plot(iris[,3:4], pch = 20, col = color[,4])
+
+pca1 <- prcomp(iris[,3:4])
+plot(iris[,3:4])
+abline(0,1/0.387)
+pca1$rotation
+```
+
+
+```{r}
 ?plsda
-pls2 <- plsda(train2$Data, as.factor(train2$Class), ncomp = 5, type = "class")
-pls2 <- predict(pls2, newdata = test2$Data, ncomp = 5)
-plot(1:94, pls2, pch = 20, col = palette[test2$Class])
+pls2 <- plsda(train2$Data, as.factor(train2$Class), ncomp = 9, type = "class")
+pls2 <- predict(pls2, newdata = test2$Data, ncomp = 4)
+plot(1:94, pls2, pch = 20, col = palette[test2$Class],
+     xlab = "Sample No.", ylab = "Predicted Class")
+
 ```
 
 
