@@ -1,0 +1,154 @@
+---
+title: "Shootout2 Classification"
+output: html_notebook
+---
+
+```{r}
+data <- read.csv("/Users/katiedaisey/Desktop/data/chemometrics/shootout2.csv")
+
+meas <- data[,c(1,248:251)]
+data <- data[,2:247]
+colnames(data)
+```
+```{r}
+a <- colnames(data)
+a <- strsplit(a, "X")
+a <- unlist(a)[c(F,T)]
+colnames(data) <- a
+```
+
+
+```{r}
+matplot(t(data), type = "l", lty = 1, 
+        xaxt = "n", xlab = "Wavelength", ylab = "Intensity")
+axis(1, at = c(seq(1,246,by = 49)), labels = colnames(data)[c(seq(1,246,by = 49))])
+```
+```{r}
+matplot(t(data), type = "l", lty = 1, col = as.factor(meas$IPA),
+        xaxt = "n", xlab = "Wavelength", ylab = "Intensity")
+axis(1, at = c(seq(1,246,by = 49)), labels = colnames(data)[c(seq(1,246,by = 49))])
+legend("topleft", col = 1:4, lty = 1, legend = c("Class A", "Class B", "Class C", "Class D"), bty = "n")
+```
+```{r}
+table(meas$IPA)
+```
+
+
+
+```{r}
+par(mfrow = c(2,2))
+#IPA
+matplot(t(data), type = "l", lty = 1, col = as.factor(meas$IPA),
+        xaxt = "n", xlab = "Wavelength", ylab = "Intensity", main = "Class")
+axis(1, at = c(seq(1,246,by = 49)), labels = colnames(data)[c(seq(1,246,by = 49))])
+#Water
+color <- cbind(meas$Water, 1:length(meas[,1]))
+color <- color[order(color[,1]),]
+color <- cbind(color,1:length(meas[,1]))
+color <- cbind(color, rainbow(n = (length(color[,1]) + round(length(color[,1])/10,0) ))[1:length(color[,1])])
+color <- color[order(color[,2]),]
+
+
+matplot(t(data), type = "l", lty = 1, col = color[,4],
+        xaxt = "n", xlab = "Wavelength", ylab = "Intensity", main = "Water")
+axis(1, at = c(seq(1,246,by = 49)), labels = colnames(data)[c(seq(1,246,by = 49))])
+# Acetone
+color <- cbind(meas$Acetone, 1:length(meas[,1]))
+color <- color[order(color[,1]),]
+color <- cbind(color,1:length(meas[,1]))
+color <- cbind(color, rainbow(n = (length(color[,1]) + round(length(color[,1])/10,0) ))[1:length(color[,1])])
+color <- color[order(color[,2]),]
+matplot(t(data), type = "l", lty = 1, col = color[,4],
+        xaxt = "n", xlab = "Wavelength", ylab = "Intensity", main = "Acetone")
+axis(1, at = c(seq(1,246,by = 49)), labels = colnames(data)[c(seq(1,246,by = 49))])
+# TBA
+color <- cbind(meas$TBA, 1:length(meas[,1]))
+color <- color[order(color[,1]),]
+color <- cbind(color,1:length(meas[,1]))
+color <- cbind(color, rainbow(n = (length(color[,1]) + round(length(color[,1])/10,0) ))[1:length(color[,1])])
+color <- color[order(color[,2]),]
+matplot(t(data), type = "l", lty = 1, col = color[,4],
+        xaxt = "n", xlab = "Wavelength", ylab = "Intensity", main = "TBA")
+axis(1, at = c(seq(1,246,by = 49)), labels = colnames(data)[c(seq(1,246,by = 49))])
+par(mfrow = c(1,1))
+```
+
+```{r}
+rF1 <- randomForest(x = train, y = as.factor(cltrain))
+rF1 <- predict(rF1, newdata = test)
+
+plot(1:18, rF1, pch = 20, col = as.factor(cltest),
+     xlab = "Sample No.", ylab = "Predicted Class")
+```
+
+
+
+```{r}
+hmlcdir <- "/Users/katiedaisey/Desktop/hmlc"
+
+library(class)
+library(caret)
+library(ggplot2)
+library(pls)
+library(randomForest)
+library(rpart)
+library(devtools)
+install(hmlcdir)
+library(hmlc)
+```
+
+```{r}
+train <- data[c(T,F),]
+test  <- data[c(F,T),]
+cltrain <- meas$IPA[c(T,F)]
+cltest  <- meas$IPA[c(F,T)]
+cltrain <- as.factor(cltrain)
+cltest <- as.factor(cltest)
+levels(cltrain) <- c(1:4)
+levels(cltest) <- c(1:4)
+cltrain <- as.numeric(cltrain)
+cltest <- as.numeric(cltest)
+```
+
+```{r}
+gen_hmlc_tree <- function(classes, data, dist_method = "euclidean", hclust_method = "ward.D2") {
+  
+  tmp_df <- data.frame(Class = classes)
+  tmp_df$Data <- as.matrix(data)
+  centers <- aggregate(Data~Class, data = tmp_df, FUN = mean)
+  
+  h1 <- stats:::hclust(stats:::dist(centers, method = dist_method), method = hclust_method)
+  h1 <- hmlc:::hclust_to_hltree(h1)
+  
+  return(h1)
+}
+# make tree
+h1 <- gen_hmlc_tree(cltrain, train)
+
+flatten <- function(results, leaf_nodes) {
+  results <- results[,leaf_nodes]
+  
+  out <- rep(0, length(results[,1]))
+  
+  for (i in leaf_nodes) {
+    out[results[,i] == 1] <- i
+  }
+  
+  return(out)
+}  
+library(hmlc)
+labels <- create_labels(as.factor(cltrain), hltree = h1, depth = "full")
+plot(h1)
+```
+
+
+```{r}
+hmlc1 <- hmlc:::hlcpn(data = train, test = test, labels = labels, hltree = h1, policy = "actual", classifier = "randomForest", k = 1)
+a <- flatten(hmlc1, 1:4)
+
+plot(1:18, a, pch = 20, col = as.factor(cltest))
+```
+
+
+
+
