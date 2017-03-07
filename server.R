@@ -28,7 +28,7 @@ shinyServer(function(input, output) {
     sample <- 1:length(data[,1])
     sample <- sample(sample, length(data[,1]))
     
-    
+   
     
     pro <- input$trainpor
     pro <- pro * length(data[,1])
@@ -39,8 +39,12 @@ shinyServer(function(input, output) {
     
     scale <- input$scale
     center <- input$center
+    mins <- apply(data, 2, min)
+    maxs <- apply(data, 2, max)
+    names(mins) <- colnames(data)
+    names(maxs) <- colnames(data)
     
-    info <- list(data = data, sample = sample, train = train, test = test, scale = scale, center = center)
+    info <- list(data = data, sample = sample, train = train, test = test, scale = scale, center = center, mins = mins, maxs = maxs)
     return(info)
   })
   
@@ -55,14 +59,14 @@ shinyServer(function(input, output) {
   # output column names for selection
   
   output$selectColumn1 <- renderUI({
-    selectInput("column1", "X Variable:", datacolumns(), selected = 1)
+    selectInput("column1", "X Variable:", datacolumns(), selected = datacolumns()[2])
   })
   output$selectColumn2 <- renderUI({
-    selectInput("column2", "Y Variable:", datacolumns(), selected = 2)
+    selectInput("column2", "Y Variable:", datacolumns(), selected = datacolumns()[3])
   })
   
   output$selectClass <- renderUI({
-    selectInput("columnclass", "Class Variable:", datacolumns(), selected = 2)
+    selectInput("columnclass", "Class Variable:", datacolumns(), selected = datacolumns()[1])
   })
   
   
@@ -100,6 +104,26 @@ shinyServer(function(input, output) {
     hist(x, breaks = bins, col = input$color, border = 'white', main = paste0("Histogram of ", input$column2))
   })
   
+  output$boxPlot <- renderPlot({
+    info <- dataSet()
+    data <- scale(info$data, scale = info$scale, center = info$center)
+    train <- data[info$sample,]
+    test <- data[-info$sample,]
+    
+    if (info$center == T) {
+      train <- scale(train, scale = F, center = T)
+      test <- scale(test, scale = F, center = attributes(train)$"scaled:center")
+    }
+    if (info$scale == T) {
+      train <- scale(train, scale = T, center = F)
+      test <- scale(test, scale = attributes(train)$"scaled:scale", center = F)
+    }
+    
+    
+    boxplot(data)
+    
+  })
+  
   
   output$twodPlot <- renderPlot({
     info <- dataSet()
@@ -107,12 +131,63 @@ shinyServer(function(input, output) {
     train <- data[info$sample,]
     test <- data[-info$sample,]
     
-    if (info$scale == T | info$center == T) {
-      train <- scale(train, scale = info$scale, center = info$center)
-      test <- scale(test, scale = attributes(train)$"scaled:scale", center = attributes(train)$"scaled:center")
+    if (info$center == T) {
+      train <- scale(train, scale = F, center = T)
+      test <- scale(test, scale = F, center = attributes(train)$"scaled:center")
+    }
+    if (info$scale == T) {
+      train <- scale(train, scale = T, center = F)
+      test <- scale(test, scale = attributes(train)$"scaled:scale", center = F)
+    }
+    mins <- apply(rbind(train, test), 2, min)
+    maxs <- apply(rbind(train, test), 2, max)
+    names(mins) <- colnames(data)
+    names(maxs) <- colnames(data)
+    xlim <- c(mins[input$column1], maxs[input$column1])
+    ylim <- c(mins[input$column2], maxs[input$column2])
+    
+    
+    plot(train[,input$column1], train[,input$column2], 
+         xlab = input$column1, ylab = input$column2, 
+         pch = 20, col = 1, xlim = xlim, ylim = ylim)
+    points(test[,input$column1], test[,input$column2], 
+           pch = 4, col = 2)
+  })
+  
+  output$twodclassPlot <- renderPlot({
+    info <- dataSet()
+    data <- info$data
+    
+    # class info
+    nam <- 1:length(info$data[1,])
+    names(nam) <- colnames(info$data)
+    cl1 <- nam[input$columnclass]
+    cl <- data[,cl1]
+    data <- data[,-cl1]
+    cltrain <- cl[info$sample]
+    cltest <- cl[-info$sample]
+    
+    # split train/test
+    train <- data[info$sample,]
+    test <- data[-info$sample,]
+    
+    # center/scale as necessary
+    if (info$center == T) {
+      train <- scale(train, scale = F, center = T)
+      test <- scale(test, scale = F, center = attributes(train)$"scaled:center")
+    }
+    if (info$scale == T) {
+      train <- scale(train, scale = T, center = F)
+      test <- scale(test, scale = attributes(train)$"scaled:scale", center = F)
     }
     
-    plot(data[,input$column1], data[,input$column2])
+    
+    plot(train[,input$column1], train[,input$column2], 
+         xlab = input$column1, ylab = input$column2, 
+         col = cltrain, pch = 20)
+    points(test[,input$column1], test[,input$column2], 
+           col = cltest, pch = 4)
+    
   })
   
   
@@ -132,6 +207,7 @@ shinyServer(function(input, output) {
     
     
     cl <- data[,cl1]
+    cl <- as.factor(cl)
     cltrain <- cl[sample]
     cltest <- cl[-sample]
     data <- data[,-(cl1)]
@@ -151,8 +227,8 @@ shinyServer(function(input, output) {
     
     
     knn1 <- class:::knn(train = train, test = test, cl = cltrain, k = input$k)
-    plot(1:length(cltest), knn1, pch = 20, col = cltest,
-         xlab = "Sample No", ylab = "Predicted Class")
+    plot(1:length(cltest), as.numeric(knn1), pch = 20, col = cltest,
+         xlab = "Sample No", ylab = "Predicted Class", ylim = c(0, max(as.numeric(cl))))
     
   })
   
@@ -309,6 +385,7 @@ shinyServer(function(input, output) {
     
     plot(pca1$x[,col1], pca1$x[,col2], xlab = per_var[col1], ylab = per_var[col2], col = as.factor(cltrain))
     
+    
   })
   
   
@@ -381,6 +458,7 @@ shinyServer(function(input, output) {
     
     
     cl <- data[,cl1]
+    cl <- as.factor(cl)
     cltrain <- cl[sample]
     cltest <- cl[-sample]
     data <- data[,-(cl1)]
@@ -404,8 +482,12 @@ shinyServer(function(input, output) {
     newdata <- as.matrix(test) %*% (pca1$rotation)
     knn1 <- class:::knn(train = pca1$x[,1:input$ncomp], test = newdata[,1:input$ncomp], cl = cltrain, k = input$k)
     plot(1:length(cltest), knn1, pch = 20, col = cltest,
-         xlab = "Sample No", ylab = "Predicted Class")
-    
+         xlab = "Sample No", ylab = "Predicted Class",
+         ylim = c(min(as.numeric(cl)), max(as.numeric(cl))))
+  })
+  
+  output$text <- renderText({
+    input$ncomp
   })
   
 

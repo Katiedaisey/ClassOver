@@ -38,14 +38,7 @@ shinyUI(fluidPage(
                           sliderInput("trainpor", "Proportion of Data in Training Set",
                                       min = 0,
                                       max = 1,
-                                      value = 0.5),
-                          sliderInput("bins",
-                                      "Number of bins:",
-                                      min = 1,
-                                      max = 50,
-                                      value = 30),
-                          
-                          selectInput("color", "Choose Color:", c("darkgrey","black", "red", "green"))
+                                      value = 0.5)
                         ),
                         
                         #outputs
@@ -55,13 +48,14 @@ shinyUI(fluidPage(
                           #  tabPanel("Histogram", plotOutput("distPlot")),
                           #  tabPanel("2D Plot", plotOutput("twodPlot"))
                           #),
-                          plotOutput("distPlot"),
-                          plotOutput("dist2Plot"),
-                          plotOutput("twodPlot")
+                          #plotOutput("distPlot"),
+                          #plotOutput("dist2Plot"),
+                          plotOutput("boxPlot"),
+                          plotOutput("twodPlot"),
+                          plotOutput("twodclassPlot")
                           #plotOutput("twodPlot")
                           
                         )
-                        
                       )
              ), # end Input tab
              
@@ -96,10 +90,12 @@ shinyUI(fluidPage(
                    htmlOutput("selectPCAColumn2")
                  ),
                  mainPanel(plotOutput("PCAncompPlot"),
+                           textOutput("text"),
                            plotOutput("PCAPlot"),
                            plotOutput("PCAProj"),
                            plotOutput("PCAknnplot")
-                           )
+                           ),
+                fluid = TRUE
                )       
                       
                       
