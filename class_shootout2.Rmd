@@ -17,6 +17,10 @@ a <- unlist(a)[c(F,T)]
 colnames(data) <- a
 ```
 
+```{r}
+pairs(meas[,2:5])
+```
+
 
 ```{r}
 matplot(t(data), type = "l", lty = 1, 
@@ -73,13 +77,10 @@ axis(1, at = c(seq(1,246,by = 49)), labels = colnames(data)[c(seq(1,246,by = 49)
 par(mfrow = c(1,1))
 ```
 
-```{r}
-rF1 <- randomForest(x = train, y = as.factor(cltrain))
-rF1 <- predict(rF1, newdata = test)
 
-plot(1:18, rF1, pch = 20, col = as.factor(cltest),
-     xlab = "Sample No.", ylab = "Predicted Class")
-```
+
+
+
 
 
 
@@ -108,7 +109,42 @@ levels(cltrain) <- c(1:4)
 levels(cltest) <- c(1:4)
 cltrain <- as.numeric(cltrain)
 cltest <- as.numeric(cltest)
+scale_train <- scale(train, center = T, scale = T)
+scale_test <- scale(test, center = attributes(scale_train)$`scaled:center`, scale =  attributes(scale_train)$`scaled:scale` )
 ```
+
+
+```{r}
+pca1 <- prcomp(scale_train, center = F, scale. = F)
+newdata <- scale_test %*% pca1$rotation
+plot(pca1)
+plot(pca1$x[,1:2], pch = 20, col = cltrain)
+plot(pca1$rotation[,1:2], type = "l")
+```
+
+```{r}
+knn1 <- class:::knn(pca1$x, newdata, cltrain)
+plot(1:18, knn1, pch = 20, col = cltest)
+cf <- confusionMatrix(data = knn1, reference = cltest)
+cf$overall
+```
+
+```{r}
+knn1 <- class:::knn(pca1$x[,1:8], newdata[,1:8], cltrain)
+plot(1:18, knn1, pch = 20, col = cltest)
+cf <- confusionMatrix(data = knn1, reference = cltest)
+cf$overall
+```
+
+
+```{r}
+knn2 <- class:::knn(pca1$x[,3:10], newdata[,3:10], cltrain)
+plot(1:18, knn2, pch = 20, col = cltest)
+cf <- confusionMatrix(data = knn2, reference = cltest)
+cf$overall
+```
+
+
 
 ```{r}
 gen_hmlc_tree <- function(classes, data, dist_method = "euclidean", hclust_method = "ward.D2") {
@@ -145,10 +181,13 @@ plot(h1)
 ```{r}
 hmlc1 <- hmlc:::hlcpn(data = train, test = test, labels = labels, hltree = h1, policy = "actual", classifier = "randomForest", k = 1)
 a <- flatten(hmlc1, 1:4)
-
-plot(1:18, a, pch = 20, col = as.factor(cltest))
 ```
 
+```{r}
+plot(1:18, a, pch = 20, col = as.factor(cltest), yaxt = 'n', ylab = "Predicted Class")
+axis(2, at = 1:4, labels = c("","","",""))
+text(x = -.5, y = 1:4, labels = 1:4, col=1:4, xpd = T, srt = 0)
+```
 
 
 

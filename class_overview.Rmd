@@ -80,13 +80,19 @@ points(test[,5:6], pch = 4, col = palette[knn_test], cex = 2)
 
 
 ```{r}
-plot(1:94, knn_test, pch = 20, col = palette[test[,2]])
+plot(1:94, knn_test, pch = 20, col = palette[test[,2]],
+     ylab = "Predicted Class", xlab = "Sample No.", yaxt = 'n')
+axis(2, at = 1:7, labels = rep("", times = 7))
+text(-7, y = 1:7, labels = 1:7,col=palette[1:7], xpd = T, srt = 0)
 ```
 
 ```{r}
 knn_test <- knn(train = train[,3:11], test = test[,3:11], cl = train[,2], k = 1)
 plot(1:94, knn_test, pch = 20, col = palette[test[,2]],
-                xlab = "Sample No", ylab = "Predicted Class")
+                xlab = "Sample No", ylab = "Predicted Class", yaxt = 'n')
+axis(2, at = 1:7, labels = rep("", times = 7))
+text(-7, y = 1:7, labels = 1:7,col=palette[1:7], xpd = T, srt = 0)
+
 ```
 
 
@@ -98,7 +104,9 @@ scaled_test <- scale(test[,3:11], center = attributes(scaled_train)$`scaled:cent
 
 knn_test <- knn(train = scaled_train, test = scaled_test, cl = train[,2], k = 1)
 plot(1:94, knn_test, pch = 20, col = palette[test[,2]],
-     xlab = "Sample No.", ylab = "Predicted class")
+     xlab = "Sample No.", ylab = "Predicted Class", yaxt = 'n')
+axis(2, at = 1:7, labels = rep("", times = 7))
+text(-7, y = 1:7, labels = 1:7,col=palette[1:7], xpd = T, srt = 0)
 ```
 
 
